@@ -44,8 +44,7 @@ def get_sagemaker_response(endpoint_name, content_type, accept, sagemakerbody):
             Body=sagemakerbody
         )
         logger.info(response)
-        decoded_response = response['Body'].read().decode('utf-8')
-        return decoded_response
+        return response['Body'].read().decode('utf-8')
     except Exception as e:
         logger.error(e, exc_info=True)
 
@@ -76,19 +75,17 @@ def lambda_handler(event, context):
 
     if event['script'] == 'return int(1)':
         return 1
-    else: 
-        content_type = "text/csv"
-        accept = "text/csv"
-        endpoint_name = event['script'] # Your endpoint name.
-        logger.info("Endpoint: {0}".format(endpoint_name))
-        event_data = event['data']
-        logger.info("Event data: {0}".format(event_data))
-    
-        try:
-            sagemaker_body = create_sagemaker_body(event_data)
-            sagemaker_response = get_sagemaker_response(endpoint_name, content_type, accept, sagemaker_body)
-            sagemaker_response_serialized = serialize_sagemaker_response(sagemaker_response)
-            return sagemaker_response_serialized
-        except Exception as e:
-            logger.error(e, exc_info=True)     
+    content_type = "text/csv"
+    accept = "text/csv"
+    endpoint_name = event['script'] # Your endpoint name.
+    logger.info("Endpoint: {0}".format(endpoint_name))
+    event_data = event['data']
+    logger.info("Event data: {0}".format(event_data))
+
+    try:
+        sagemaker_body = create_sagemaker_body(event_data)
+        sagemaker_response = get_sagemaker_response(endpoint_name, content_type, accept, sagemaker_body)
+        return serialize_sagemaker_response(sagemaker_response)
+    except Exception as e:
+        logger.error(e, exc_info=True)     
    

@@ -30,10 +30,10 @@ client = None
 # Primary code block for authorization
 def lambda_handler(event, context):
     global client
-    if client == None:
+    if client is None:
         client = boto3.client('cognito-idp')
 
-    log.debug("Event: " + json.dumps(event))
+    log.debug(f"Event: {json.dumps(event)}")
     principalId = event['requestContext']['accountId']
 
     tmp = event['methodArn'].split(':')
@@ -47,7 +47,7 @@ def lambda_handler(event, context):
 
     # Get authorization header in lowercase
     authorization_header = {k.lower(): v for k, v in event['headers'].items() if k.lower() == 'authorization'}
-    log.debug("authorization: " + json.dumps(authorization_header))
+    log.debug(f"authorization: {json.dumps(authorization_header)}")
 
     # Get the username:password hash from the authorization header
     header_auth = authorization_header['authorization'].split()[1]
@@ -56,17 +56,17 @@ def lambda_handler(event, context):
 
     username_password_hash = message_bytes.decode('ascii')
 
-    log.debug("username_password_hash: " + username_password_hash)
-    
+    log.debug(f"username_password_hash: {username_password_hash}")
+
     # Decode username_password_hash and get username
     #username = base64.standard_b64decode(username_password_hash).split(':')[0]
     username = username_password_hash.split(':')[0]
-    log.debug("username: " + username)
-    
+    log.debug(f"username: {username}")
+
     # Decode username_password_hash and get password
     password = username_password_hash.split(':')[1]
-    log.debug("password: " + password)
-    
+    log.debug(f"password: {password}")
+
     # Returns an allow policy on the requested API resource if auth against Cognito is successful
     try:
         response = client.initiate_auth(
@@ -78,14 +78,10 @@ def lambda_handler(event, context):
             }
         )
         policy.allowMethod(event['requestContext']['httpMethod'], event['path'])
-        authResponse = policy.build()
-        return authResponse
-        
-    # Returns a deny policy on the requested API resource if auth against Cognito fails
+        return policy.build()
     except Exception as e:
         policy.denyMethod(event['requestContext']['httpMethod'], event['path'])
-        authResponse = policy.build()
-        return authResponse
+        return policy.build()
 
 
 class HttpVerb:
@@ -139,12 +135,14 @@ class AuthPolicy(object):
         aws_region = session.region_name
 
         if verb != "*" and not hasattr(HttpVerb, verb):
-            raise NameError("Invalid HTTP verb " + verb + ". Allowed verbs in HttpVerb class")
+            raise NameError(f"Invalid HTTP verb {verb}. Allowed verbs in HttpVerb class")
         resourcePattern = re.compile(self.pathRegex)
         if not resourcePattern.match(resource):
-            raise NameError("Invalid resource path: " + resource + ". Path should match " + self.pathRegex)
+            raise NameError(
+                f"Invalid resource path: {resource}. Path should match {self.pathRegex}"
+            )
 
-        if aws_region == 'us-gov-west-1' or aws_region == 'us-gov-east-1':
+        if aws_region in ['us-gov-west-1', 'us-gov-east-1']:
             arn_partition = 'aws-us-gov'
         else:
             arn_partition = 'aws'
@@ -152,13 +150,7 @@ class AuthPolicy(object):
         if resource[:1] == "/":
             resource = resource[1:]
 
-        resourceArn = ("arn:" + arn_partition + ":execute-api:" +
-            self.region + ":" +
-            self.awsAccountId + ":" +
-            self.restApiId + "/" +
-            self.stage + "/" +
-            verb + "/" +
-            resource)
+        resourceArn = f"arn:{arn_partition}:execute-api:{self.region}:{self.awsAccountId}:{self.restApiId}/{self.stage}/{verb}/{resource}"
 
         if effect.lower() == "allow":
             self.allowMethods.append({
@@ -174,13 +166,11 @@ class AuthPolicy(object):
     def _getEmptyStatement(self, effect):
         """Returns an empty statement object prepopulated with the correct action and the
         desired effect."""
-        statement = {
+        return {
             'Action': 'execute-api:Invoke',
             'Effect': effect[:1].upper() + effect[1:].lower(),
-            'Resource': []
+            'Resource': [],
         }
-
-        return statement
 
     def _getStatementForEffect(self, effect, methods):
         """This function loops over an array of objects containing a resourceArn and
